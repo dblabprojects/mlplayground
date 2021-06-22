@@ -11,6 +11,7 @@
 
 import streamlit as st
 import similaridade #importando o script 'similaridade.py' com minha feature
+import obj_detection
 
 def main():
 	st.set_page_config(
@@ -20,7 +21,7 @@ def main():
 	
 
 	activities = [	"Home",
-					"Título do App", # Modificar/inserir
+					"Detecção de Objetos", # Modificar/inserir
 					"Busca por Similaridade",
 					"Sobre"]
 
@@ -32,6 +33,9 @@ def main():
 
 	elif choice == 'Título do App': # Modificar
 		st.text('funcao.main()')# <--- função aqui!
+
+	elif choice == 'Detecção de Objetos':
+		obj_detection.main()
 
 	elif choice == 'Sobre':
 		st.subheader("Sobre o DBLab Machine Learning Playground 🤖")

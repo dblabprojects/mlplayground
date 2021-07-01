@@ -37,6 +37,11 @@ from streamlit_webrtc import (
 
 from imutils.video import FPS
 
+import pafy
+from io import StringIO
+
+import tempfile
+
 HERE = Path(__file__).parent
 
 WEBRTC_CLIENT_SETTINGS = ClientSettings(
@@ -295,7 +300,7 @@ def yolov3(img):
 		return img # Retorna a imagem manipulada
 
 def videoStream(choice):
-	
+	st.text('Selecione uma câmera e clique em Start.')
 	# Processamento do vídeo
 	class VideoProcessor(VideoProcessorBase):
 		confidence_threshold: float
@@ -321,24 +326,89 @@ def videoStream(choice):
 		async_processing=True,
 	)
 
+def youtube(url, model):
+	video = pafy.new(url)
+	best = video.getbest(preftype="mp4")
+
+	capture = cv2.VideoCapture(best.url)
+
+	frames = []
+	stframe = st.empty()
+	
+	while (capture.isOpened()):
+		succ, frame = capture.read()
+		if succ:
+			frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+			if model == 'MobileNet SSD':
+				annotated_frame = mobilessd(frame_rgb)
+			elif model == 'YOLO v3':
+				annotated_frame = yolov3(frame_rgb)
+
+			frames.append(annotated_frame)
+			stframe.image(annotated_frame)
+
+		else:
+			break
+
+def upload(model):
+	f = st.file_uploader("Choose a file")
+
+	if f is not None:
+		tfile = tempfile.NamedTemporaryFile(delete=False) 
+		tfile.write(f.read())
+
+		vf = cv2.VideoCapture(tfile.name)
+
+		stframe = st.empty()
+
+		while vf.isOpened():
+			ret, frame = vf.read()
+			# if frame is read correctly ret is True
+			if not ret:
+				print("Can't receive frame (stream end?). Exiting ...")
+				break
+			frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+			if model == 'MobileNet SSD':
+				annotated_frame = mobilessd(frame_rgb)
+			elif model == 'YOLO v3':
+				annotated_frame = yolov3(frame_rgb)
+
+			stframe.image(annotated_frame)
+
+
 def main():
 	st.header("**Visão Computacional:** Detecção de Objetos")
 
-	# Modelo: mudar função!
 	models = [	"YOLO v3", "MobileNet SSD" ]
 
-	choice = st.sidebar.selectbox("Modelo:", models)
+	model_choice = st.sidebar.selectbox("Modelo:", models)
 
-	st.text('Selecione uma câmera e clique em Start.')
+	modes = [	"Webcam", "YouTube", "Upload" ]
 
-	if choice == 'YOLO v3':
-		videoStream(choice)
+	mode_choice = st.sidebar.selectbox("Modo:", modes)
+
+	if model_choice == 'YOLO v3':
+		if mode_choice == 'Webcam':
+			videoStream(model_choice)
+		elif mode_choice == 'YouTube':
+			link = st.text_input('Link do YouTube', 'https://www.youtube.com/watch?v=Ri0VbeNUGhg')
+			if link != '': youtube(link, model_choice)	
+
 		st.markdown("O **YOLO**: **Y**ou **O**nly **L**ook **O**nce é uma ferramenta para detecção e classificação de objetos em tempo real que, em uma pequena fração de segundo - dez vezes mais rápido que um piscar de olhos - consegue detectar até 80 classes de objetos diferentes em uma imagem.")
 		st.markdown("Representa o estado da arte em sistemas de reconhecimento de objetos em tempo real, de acordo com um compromisso entre velocidade e assertividade. Também é totalmente código aberto e livre de licenças de uso. Ou seja, tudo nesta tecnologia (o código-fonte, a arquitetura da rede neural, os pesos com as quais esta rede é executada e os datasets utilizados para treinar) é livre e pode ser usado por qualquer um, de qualquer forma.")
 		st.markdown("Quer saber mais? Leia nosso [artigo no Medium](https://medium.com/@dblab/yolo-um-sistema-para-detec%C3%A7%C3%A3o-de-classes-de-objetos-em-tempo-real-be94c790c3e8) e chama a gente! [dblab@dbserver.com.br](mailto:dblab@dbserver.com.br)")
-	if choice == 'MobileNet SSD':
-		videoStream(choice)
-		st.markdown("A **MobileNet** é uma classe de convolução de Redes Neurais que simplifica a criação de aplicações para reconhecimentos de imagens para dispositivos móveis e na web. Por padrão, a rede utiliza o dataset ImageNet da Google, que contém um banco com mais de 1.500.00 imagens classificadas em 1.000 categorias. A precisão da MobileNet é menor do que as redes neurais tradicionais, mas compensa na velocidade de processamento e a grande quantidade de amostras disponíveis.")
+	
+	if model_choice == 'MobileNet SSD':
+		if mode_choice == 'Webcam':
+			videoStream(model_choice)
+		elif mode_choice == 'YouTube':
+			link = st.text_input('Link do YouTube', 'https://www.youtube.com/watch?v=Ri0VbeNUGhg')
+			if link != '': youtube(link, model_choice)
+		elif mode_choice == 'Upload':
+			upload(model_choice)
+
+
+		st.markdown("A **MobileNet** é uma classe de convolução de Redes Neurais que simplifica a criação de aplicações para reconhecimento de imagens em dispositivos móveis e na web. Por padrão, a rede utiliza o dataset ImageNet da Google, que contém um banco com mais de 1.500.00 imagens classificadas em 1.000 categorias. A precisão da MobileNet é menor do que as redes neurais tradicionais, mas compensa na velocidade de processamento e a grande quantidade de amostras disponíveis.")
 		st.markdown("Quer saber mais? Chama a gente! [dblab@dbserver.com.br](mailto:dblab@dbserver.com.br)")
 		
 		st.markdown(
